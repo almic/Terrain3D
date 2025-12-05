@@ -1,0 +1,143 @@
+#!/bin/bash
+
+init_submodule=
+use_llvm=
+compile_godot=
+
+while test $# -gt 0; do
+    case "$1" in
+        ?|-h|--help)
+            echo "Compile Terrain3D, optionally cloning and/or compiling godot-cpp lib"
+            echo " "
+            echo "build [options]"
+            echo " "
+            echo "options:"
+            echo "-h, --help     show brief help"
+            echo "-i, --init     Initialize godot-cpp submodule if the folder is empty"
+            echo "-g, --godot    Compile godot-cpp if libraries are missing"
+            echo " "
+            echo "--llvm         Pass 'use_llvm=\"true\"' to scons"
+            exit 0
+            ;;
+        --llvm)
+            use_llvm=1
+            shift
+            ;;
+        -i|--init)
+            init_submodule=1
+            shift
+            ;;
+        -g|--godot)
+            compile_godot=1
+            shift
+            ;;
+        -a)
+            use_llvm=1
+            compile_godot=1
+            init_submodule=1
+            shift
+            ;;
+        *)
+            echo "Unknown argument '$1', exiting"
+            exit 1
+            ;;
+    esac
+done
+
+if [ ! -d "$(pwd)/godot-cpp" ] || [ -z "$( ls -A 'godot-cpp' )" ]; then
+    if [ ! -z "$init_submodule" ]; then
+        echo "Initializing godot-cpp submodule"
+        retVal=0
+        git submodule update --init || $retVal=$?
+        if [ $retVal -ne 0 ]; then
+            echo "Failed to clone submodule godot-cpp"
+            exit $retVal
+        fi
+    else
+        echo "Submodule godot-cpp is not present. Pass '-i' to automatically initialize it, or"
+        echo "initialize it manually with the command 'git submodule update --init'."
+        exit 0
+    fi
+fi
+
+has_debug=
+if [ -e "$(pwd)/godot-cpp/bin/libgodot-cpp.linux.template_debug.double.x86_64.a" ]; then
+    has_debug=1
+fi
+has_release=
+if [ -e "$(pwd)/godot-cpp/bin/libgodot-cpp.linux.template_release.double.x86_64.a" ]; then
+    has_release=1
+fi
+
+if [ -z "$has_debug" ] || [ -z "$has_release" ]; then
+    if [ -z "$compile_godot" ]; then
+        echo "Missing godot-cpp libraries, they must be compiled in order to build Terrain3D."
+        echo "Pass '-g' to automatically do this, or compile debug and release libraries manually."
+        exit 0
+    fi
+
+    godot_cmd="scons precision=double custom_api_file=../extension_api.json target=template_"
+
+    if [ -z "$has_debug" ]; then
+        echo 'Building godot-cpp debug binary'
+        cd godot-cpp
+        compile_cmd="${godot_cmd}debug"
+        if [ ! -z "$use_llvm" ]; then
+            compile_cmd="${compile_cmd} use_llvm=yes"
+        fi
+        retVal=0
+        eval $compile_cmd || retVal=$?
+        cd ..
+        if [ $retVal -ne 0 ]; then
+            echo "Error during build."
+            exit $retVal
+        fi
+    fi
+
+    if [ -z "$has_release" ]; then
+        echo 'Building godot-cpp release binary'
+        cd godot-cpp
+        compile_cmd="${godot_cmd}release"
+        if [ ! -z "$use_llvm" ]; then
+            compile_cmd="${compile_cmd} use_llvm=yes"
+        fi
+        retVal=0
+        eval $compile_cmd || retVal=$?
+        cd ..
+        if [ $retVal -ne 0 ]; then
+            echo "Error during build."
+            exit $retVal
+        fi
+    fi
+fi
+
+echo 'Building Terrain3D release binary'
+godot_cmd="scons precision=double custom_api_file=extension_api.json target=template_"
+compile_cmd="${godot_cmd}release"
+
+if [ ! -z "$use_llvm" ]; then
+    compile_cmd="${compile_cmd} use_llvm=yes"
+fi
+
+retVal=0
+eval $compile_cmd || retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "Error during build"
+    exit $retval
+fi
+
+echo 'Building Terrain3D debug binary'
+compile_cmd="${godot_cmd}debug"
+
+if [ ! -z "$use_llvm" ]; then
+    compile_cmd="${compile_cmd} use_llvm=yes"
+fi
+
+retVal=0
+eval $compile_cmd || retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "Error during build"
+    exit $retval
+fi
+
+echo "Done."

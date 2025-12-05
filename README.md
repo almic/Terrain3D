@@ -1,3 +1,18 @@
+# :warning: CUSTOM VERSION FOR ZOMBIE GAME :warning:
+
+This contains small changes for [zombie game](https://github.com/almic/zombie-game), primarily to
+compile properly for double precision floats.
+
+1. Execute `godot --dump-extension-api` after compiling my [custom version](https://github.com/almic/godot).
+2. Copy the file `extension_api.json` to this directory
+3. Run the `./build` script
+4. Copy the binaries located at `./project/addons/terrain_3d/bin/` to the zombie-game addon folder
+   at `zombie-game/addons/terrain_3d/bin`
+5. Commit latest binaries to zombie-game repo for everyone to use (jk only I will do that)
+
+
+# ORIGINAL README
+
 ![Terrain3D Logo](/doc/docs/images/terrain3d.jpg)
 
 # Terrain3D
