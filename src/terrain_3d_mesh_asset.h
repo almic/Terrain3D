@@ -162,30 +162,30 @@ public:
 	void set_shadow_impostor(const int p_lod);
 	int get_shadow_impostor() const { return _shadow_impostor; }
 
-	void set_lod_range(const int p_lod, const real_t p_distance);
-	real_t get_lod_range(const int p_lod) const;
-	real_t get_lod_range_begin(const int p_lod) const;
-	real_t get_lod_range_end(const int p_lod) const;
-	void set_lod0_range(const real_t p_distance) { set_lod_range(0, p_distance); }
-	real_t get_lod0_range() const { return _lod_ranges[0]; }
-	void set_lod1_range(const real_t p_distance) { set_lod_range(1, p_distance); }
-	real_t get_lod1_range() const { return _lod_ranges[1]; }
-	void set_lod2_range(const real_t p_distance) { set_lod_range(2, p_distance); }
-	real_t get_lod2_range() const { return _lod_ranges[2]; }
-	void set_lod3_range(const real_t p_distance) { set_lod_range(3, p_distance); }
-	real_t get_lod3_range() const { return _lod_ranges[3]; }
-	void set_lod4_range(const real_t p_distance) { set_lod_range(4, p_distance); }
-	real_t get_lod4_range() const { return _lod_ranges[4]; }
-	void set_lod5_range(const real_t p_distance) { set_lod_range(5, p_distance); }
-	real_t get_lod5_range() const { return _lod_ranges[5]; }
-	void set_lod6_range(const real_t p_distance) { set_lod_range(6, p_distance); }
-	real_t get_lod6_range() const { return _lod_ranges[6]; }
-	void set_lod7_range(const real_t p_distance) { set_lod_range(7, p_distance); }
-	real_t get_lod7_range() const { return _lod_ranges[7]; }
-	void set_lod8_range(const real_t p_distance) { set_lod_range(8, p_distance); }
-	real_t get_lod8_range() const { return _lod_ranges[8]; }
-	void set_lod9_range(const real_t p_distance) { set_lod_range(9, p_distance); }
-	real_t get_lod9_range() const { return _lod_ranges[9]; }
+	void set_lod_range(const int p_lod, const float p_distance);
+	float get_lod_range(const int p_lod) const;
+	float get_lod_range_begin(const int p_lod) const;
+	float get_lod_range_end(const int p_lod) const;
+	void set_lod0_range(const float p_distance) { set_lod_range(0, p_distance); }
+	float get_lod0_range() const { return _lod_ranges[0]; }
+	void set_lod1_range(const float p_distance) { set_lod_range(1, p_distance); }
+	float get_lod1_range() const { return _lod_ranges[1]; }
+	void set_lod2_range(const float p_distance) { set_lod_range(2, p_distance); }
+	float get_lod2_range() const { return _lod_ranges[2]; }
+	void set_lod3_range(const float p_distance) { set_lod_range(3, p_distance); }
+	float get_lod3_range() const { return _lod_ranges[3]; }
+	void set_lod4_range(const float p_distance) { set_lod_range(4, p_distance); }
+	float get_lod4_range() const { return _lod_ranges[4]; }
+	void set_lod5_range(const float p_distance) { set_lod_range(5, p_distance); }
+	float get_lod5_range() const { return _lod_ranges[5]; }
+	void set_lod6_range(const float p_distance) { set_lod_range(6, p_distance); }
+	float get_lod6_range() const { return _lod_ranges[6]; }
+	void set_lod7_range(const float p_distance) { set_lod_range(7, p_distance); }
+	float get_lod7_range() const { return _lod_ranges[7]; }
+	void set_lod8_range(const float p_distance) { set_lod_range(8, p_distance); }
+	float get_lod8_range() const { return _lod_ranges[8]; }
+	void set_lod9_range(const float p_distance) { set_lod_range(9, p_distance); }
+	float get_lod9_range() const { return _lod_ranges[9]; }
 	void set_fade_margin(const real_t p_fade_margin);
 	real_t get_fade_margin() const { return _fade_margin; };
 

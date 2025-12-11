@@ -542,7 +542,7 @@ void Terrain3DMeshAsset::set_shadow_impostor(const int p_lod) {
 	emit_signal("instancer_setting_changed", _id);
 }
 
-void Terrain3DMeshAsset::set_lod_range(const int p_lod, const real_t p_distance) {
+void Terrain3DMeshAsset::set_lod_range(const int p_lod, const float p_distance) {
 	if (p_lod < 0 || p_lod >= _lod_ranges.size()) {
 		LOG(ERROR, "p_lod out of range. Valid range is 0 - ", _lod_ranges.size() - 1);
 		return;
@@ -553,14 +553,14 @@ void Terrain3DMeshAsset::set_lod_range(const int p_lod, const real_t p_distance)
 	emit_signal("instancer_setting_changed", _id);
 }
 
-real_t Terrain3DMeshAsset::get_lod_range(const int p_lod) const {
+float Terrain3DMeshAsset::get_lod_range(const int p_lod) const {
 	if (p_lod < 0 || p_lod >= _lod_ranges.size()) {
 		return -1.f;
 	}
 	return _lod_ranges[p_lod];
 }
 
-real_t Terrain3DMeshAsset::get_lod_range_begin(const int p_lod) const {
+float Terrain3DMeshAsset::get_lod_range_begin(const int p_lod) const {
 	if (p_lod <= 0) {
 		return 0.f;
 	}
@@ -568,7 +568,7 @@ real_t Terrain3DMeshAsset::get_lod_range_begin(const int p_lod) const {
 	return _lod_ranges[p_lod - 1];
 }
 
-real_t Terrain3DMeshAsset::get_lod_range_end(const int p_lod) const {
+float Terrain3DMeshAsset::get_lod_range_end(const int p_lod) const {
 	if (p_lod == SHADOW_LOD_ID) {
 		return _lod_ranges[MAX(_shadow_impostor - 1, 0)];
 	}
