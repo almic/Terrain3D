@@ -2,6 +2,8 @@
 
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
 
 #include "constants.h"
 #include "logger.h"
@@ -620,7 +622,23 @@ void Terrain3DInstancer::set_mode(const InstancerMode p_mode) {
 }
 
 void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
+	// Prevent extra calls being made while waiting for physics frames
+	static bool awaiting_physics = false;
+	if (awaiting_physics != Engine::get_singleton()->is_in_physics_frame()) {
+		return;
+	} else {
+		awaiting_physics = false;
+	}
+
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
+
+	bool on_collision = bool(p_params.get("on_collision", false));
+	if (on_collision && !Engine::get_singleton()->is_in_physics_frame()) {
+		awaiting_physics = true;
+		_terrain->get_tree()->connect("physics_frame", callable_mp(this, &Terrain3DInstancer::add_instances).bind(p_global_position, p_params), CONNECT_ONE_SHOT);
+		return;
+	}
+
 	int mesh_id = p_params.get("asset_id", 0);
 	if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
 		LOG(ERROR, "Mesh ID out of range: ", mesh_id, ", valid: 0 to ", _terrain->get_assets()->get_mesh_count() - 1);
@@ -659,7 +677,6 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	Vector2 slope_range = p_params.get("slope", Vector2(0.f, 90.f)); // 0-90 degrees
 	slope_range.x = CLAMP(slope_range.x, 0.f, 90.f);
 	slope_range.y = CLAMP(slope_range.y, 0.f, 90.f);
-	bool on_collision = bool(p_params.get("on_collision", false));
 	real_t raycast_height = p_params.get("raycast_height", 10.f);
 	Terrain3DData *data = _terrain->get_data();
 
@@ -687,7 +704,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 		if (align_to_normal) {
 			// Use either collision normal or terrain normal
 			normal = raycast_hit ? (Vector3)height_data[2] : data->get_normal(position);
-			if (!normal.is_finite()) {
+			if (!normal.is_finite() || normal.is_zero_approx()) {
 				normal = V3_UP;
 			} else {
 				normal = normal.normalized();
@@ -732,7 +749,22 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 }
 
 void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
+	// Prevent extra calls being made while waiting for physics frames
+	static bool awaiting_physics = false;
+	if (awaiting_physics != Engine::get_singleton()->is_in_physics_frame()) {
+		return;
+	} else {
+		awaiting_physics = false;
+	}
+
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
+
+	bool on_collision = bool(p_params.get("on_collision", false));
+	if (on_collision && !Engine::get_singleton()->is_in_physics_frame()) {
+		awaiting_physics = true;
+		_terrain->get_tree()->connect("physics_frame", callable_mp(this, &Terrain3DInstancer::remove_instances).bind(p_global_position, p_params), CONNECT_ONE_SHOT);
+		return;
+	}
 
 	int mesh_id = p_params.get("asset_id", 0);
 	int mesh_count = _terrain->get_assets()->get_mesh_count();
@@ -752,7 +784,6 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	Vector2 slope_range = p_params.get("slope", Vector2(0.f, 90.f)); // 0-90 degrees
 	slope_range.x = CLAMP(slope_range.x, 0.f, 90.f);
 	slope_range.y = CLAMP(slope_range.y, 0.f, 90.f);
-	bool on_collision = bool(p_params.get("on_collision", false));
 	real_t raycast_height = p_params.get("raycast_height", 10.f);
 
 	// Build list of potential regions to search, rather than searching the entire terrain, calculate possible regions covered
@@ -1010,7 +1041,25 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 
 // Review all transforms in one area and adjust their transforms w/ the current height
 void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
+	// Prevent extra calls being made while waiting for physics frames
+	static bool awaiting_physics = false;
+	if (awaiting_physics != Engine::get_singleton()->is_in_physics_frame()) {
+		return;
+	} else {
+		awaiting_physics = false;
+	}
+
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
+
+	Terrain3DData *data = _terrain->get_data();
+	Dictionary params = _terrain->get_editor() ? _terrain->get_editor()->get_brush_data() : Dictionary();
+	bool on_collision = params.get("on_collision", false);
+	if (on_collision && !Engine::get_singleton()->is_in_physics_frame()) {
+		awaiting_physics = true;
+		_terrain->get_tree()->connect("physics_frame", callable_mp(this, &Terrain3DInstancer::update_transforms).bind(p_aabb), CONNECT_ONE_SHOT);
+		return;
+	}
+
 	Rect2 rect = aabb2rect(p_aabb);
 	LOG(EXTREME, "Updating transforms within ", rect);
 	Vector2 global_position = rect.get_center();
@@ -1020,9 +1069,6 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 		return;
 	}
 
-	Terrain3DData *data = _terrain->get_data();
-	Dictionary params = _terrain->get_editor() ? _terrain->get_editor()->get_brush_data() : Dictionary();
-	bool on_collision = params.get("on_collision", false);
 	real_t raycast_height = params.get("raycast_height", 10.f);
 	int region_size = _terrain->get_region_size();
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
