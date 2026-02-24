@@ -107,13 +107,21 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	bool modifier_ctrl = _brush_data["modifier_ctrl"];
 	//bool modifier_shift = _brush_data["modifier_shift"];
 
-	Image *brush_image = cast_to<Image>(_brush_data["brush_image"]);
-	if (!brush_image) {
-		LOG(ERROR, "Invalid brush image. Returning");
-		return;
-	}
-	Vector2i img_size = _brush_data["brush_image_size"];
 	real_t brush_size = CLAMP(real_t(_brush_data.get("size", 10.f)), 2.f, 4096.f); // Meters
+	Ref<Image> brush_image = _brush_data["brush_resized"];
+	if (!brush_image.is_valid() || brush_image->get_width() != (int)brush_size) {
+		brush_image = _brush_data["brush_image"];
+		if (!brush_image.is_valid()) {
+			LOG(ERROR, "Invalid brush image. Returning");
+			return;
+		}
+		if (brush_image->get_width() != (int)brush_size) {
+			brush_image = brush_image->duplicate();
+			brush_image->resize((int)brush_size, (int)brush_size, Image::Interpolation::INTERPOLATE_LANCZOS);
+			_brush_data["brush_resized"] = brush_image;
+		}
+	}
+	Vector2i img_size = brush_image->get_size();
 
 	// Typicall we multiply mouse pressure & strength setting, but
 	// * Mouse movement w/ button down has a pressure of 1
@@ -185,8 +193,27 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	// need to track if _added_removed_locations has changed between now and the end of the loop
 	int regions_added_removed = _added_removed_locations.size();
 
-	for (real_t x = 0.f; x < brush_size; x += vertex_spacing) {
-		for (real_t y = 0.f; y < brush_size; y += vertex_spacing) {
+	// Compute area from brush rotation
+	Rect2i brush_area = Rect2i(0, 0, brush_size, brush_size);
+	brush_area.expand_to((_get_rotated_uv(Vector2(0, 0), rot) * (brush_size + 0.5)).round());
+	brush_area.expand_to((_get_rotated_uv(Vector2(1, 0), rot) * (brush_size + 0.5)).round());
+	brush_area.expand_to((_get_rotated_uv(Vector2(1, 1), rot) * (brush_size + 0.5)).round());
+	brush_area.expand_to((_get_rotated_uv(Vector2(0, 1), rot) * (brush_size + 0.5)).round());
+	real_t b_start = brush_area.position.x;
+	real_t b_end = b_start + brush_area.size.x;
+
+	for (real_t x = b_start; x < b_end; x += vertex_spacing) {
+		for (real_t y = b_start; y < b_end; y += vertex_spacing) {
+			Vector2 brush_uv = Vector2(x, y) / brush_size;
+			Vector2 pixel_coord = _get_rotated_uv(brush_uv, rot) * img_size;
+
+			Vector2i cell = Vector2i((pixel_coord - V2(0.5)).floor());
+
+			// Test this first as the bounding box may be rotated
+			if (!_is_in_bounds(cell, img_size)) {
+				continue;
+			}
+
 			Vector2 brush_offset = Vector2(x, y) - (V2(brush_size) * .5f);
 			Vector3 brush_global_position =
 					Vector3(p_global_position.x + brush_offset.x + .5f, p_global_position.y,
@@ -213,20 +240,42 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				continue;
 			}
 
-			Vector2 brush_uv = Vector2(x, y) / brush_size;
-			Vector2i brush_pixel_position = Vector2i(_get_rotated_uv(brush_uv, rot) * img_size);
-			if (!_is_in_bounds(brush_pixel_position, img_size)) {
-				continue;
+			real_t brush_alpha;
+			{
+				Vector2i p_max = img_size - Vector2i(1, 1);
+
+				// Bicubic interpolation
+				Vector2 offset = Vector2((pixel_coord - V2(0.5)) - cell);
+				Vector2 o2 = offset * offset;
+				Vector2 o3 = o2 * offset;
+
+				Vector2 q1 = 0.5 * (-o3 + 2.0 * o2 - offset);
+				Vector2 q2 = 0.5 * (3.0 * o3 - 5.0 * o2 + V2(2.0));
+				Vector2 q3 = 0.5 * (-3.0 * o3 + 4.0 * o2 + offset);
+				Vector2 q4 = 0.5 * (o3 - o2);
+
+				Vector4 px;
+				for (int py = -1; py < 3; ++py)
+				{
+					real_t p_1 = brush_image->get_pixelv((cell + Vector2i(-1, py)).clamp(Vector2i(), p_max)).r;
+					real_t p0  = brush_image->get_pixelv((cell + Vector2i( 0, py)).clamp(Vector2i(), p_max)).r;
+					real_t p1  = brush_image->get_pixelv((cell + Vector2i( 1, py)).clamp(Vector2i(), p_max)).r;
+					real_t p2  = brush_image->get_pixelv((cell + Vector2i( 2, py)).clamp(Vector2i(), p_max)).r;
+
+					px[py + 1] = p_1 * q1.x + p0 * q2.x + p1 * q3.x + p2 * q4.x;
+				}
+
+				brush_alpha = px.x * q1.y + px.y * q2.y + px.z * q3.y + px.w * q4.y;
 			}
+
+			brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
+			brush_alpha = std::isnan(brush_alpha) ? 0.f : brush_alpha;
 
 			Vector3 edited_position = brush_global_position;
 			edited_position.y = data->get_height(edited_position);
 			edited_area = edited_area.expand(edited_position);
 
 			// Start brushing on the map
-			real_t brush_alpha = brush_image->get_pixelv(brush_pixel_position).r;
-			brush_alpha = real_t(Math::pow(double(brush_alpha), double(gamma)));
-			brush_alpha = std::isnan(brush_alpha) ? 0.f : brush_alpha;
 			Color src = map->get_pixelv(map_pixel_position);
 			Color dest = src;
 
@@ -843,6 +892,7 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 		if (img.is_valid() && !img->is_empty()) {
 			_brush_data["brush_image"] = img;
 			_brush_data["brush_image_size"] = img->get_size();
+			_brush_data["brush_resized"] = nullptr;
 		} else {
 			LOG(ERROR, "Brush data doesn't contain a valid image");
 		}

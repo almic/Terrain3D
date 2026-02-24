@@ -171,7 +171,7 @@ inline Vector2 Terrain3DEditor::_get_uv_position(const Vector3 &p_global_positio
 inline Vector2 Terrain3DEditor::_get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const {
 	Vector2 rotation_offset = V2(0.5f);
 	Vector2 uv = (p_uv - rotation_offset).rotated(p_angle) + rotation_offset;
-	return uv.clamp(V2_ZERO, V2(1.f));
+	return uv;
 }
 
 #endif // TERRAIN3D_EDITOR_CLASS_H
